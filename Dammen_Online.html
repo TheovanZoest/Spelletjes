@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dammen – Online</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&display=swap">
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<style>
+  :root{
+    color-scheme: dark;
+    --lacquer:#0B1A16; --felt:#12302A; --felt-2:#18392F;
+    --brass:#C9A45C; --brass-hi:#EBD49A; --brass-lo:#8A6C33;
+    --ivory:#F2EADB; --muted:#93A89F; --line:rgba(201,164,92,.28);
+    --ok:#7FC79A; --warn:#E3A36B;
+    --sq-light:#D8C9A6; --sq-dark:#1F4A3D;
+    --display:"Marcellus","Didot","Bodoni MT","Georgia",serif;
+    --body:"Jost","Futura","Century Gothic","Segoe UI",system-ui,sans-serif;
+  }
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--lacquer);color:var(--ivory);font-family:var(--body);font-size:16px;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% 35%, rgba(24,57,47,.95), transparent 70%),
+      repeating-linear-gradient(45deg, rgba(255,255,255,.012) 0 2px, transparent 2px 6px);
+    background-attachment:fixed;
+  }
+  [hidden]{display:none!important}
+  .wrap{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:24px 48px;display:flex;flex-direction:column;gap:24px}
+  header{text-align:center;display:flex;flex-direction:column;gap:6px}
+  .eyebrow{font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--brass)}
+  h1{font-family:var(--display);font-weight:400;margin:0;font-size:clamp(32px,6vw,52px);letter-spacing:.02em;
+     background:linear-gradient(180deg,var(--brass-hi),var(--brass) 55%,var(--brass-lo));-webkit-background-clip:text;background-clip:text;color:transparent}
+  h2{font-family:var(--display);font-weight:400;font-size:22px;margin:0;color:var(--brass-hi)}
+  .rule{display:flex;align-items:center;gap:12px;justify-content:center;color:var(--brass)}
+  .rule::before,.rule::after{content:"";height:1px;width:min(120px,22vw);background:linear-gradient(90deg,transparent,var(--brass))}
+  .rule::after{transform:scaleX(-1)}
+  .rule span{font-size:10px}
+
+  .card{border:1px solid var(--line);border-radius:4px;padding:18px;background:linear-gradient(180deg,rgba(18,48,42,.8),rgba(11,26,22,.8));display:flex;flex-direction:column;gap:12px}
+  .muted{color:var(--muted);font-size:14px;line-height:1.5}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  label.f{display:flex;flex-direction:column;gap:4px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+  input.txt{background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:2px;color:var(--ivory);
+    font-family:var(--display);font-size:20px;padding:8px 10px;outline:none;min-width:0;letter-spacing:normal;text-transform:none}
+  input.txt:focus{border-color:var(--brass)}
+  .link{font-family:ui-monospace,Consolas,monospace;font-size:14px;word-break:break-all;background:rgba(0,0,0,.3);border:1px dashed var(--line);padding:10px;border-radius:2px;color:var(--brass-hi)}
+  .conn{display:flex;align-items:center;gap:10px;font-size:15px}
+  .dot{width:11px;height:11px;border-radius:50%;background:var(--muted);flex:none}
+  .dot.ok{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .dot.wait{background:var(--brass);animation:pulse 1.4s infinite}
+  .dot.bad{background:var(--warn)}
+  @keyframes pulse{50%{opacity:.3}}
+
+  button.btn{font-family:var(--body);font-size:13px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;
+    padding:12px 20px;border-radius:2px;border:1px solid var(--brass);background:transparent;color:var(--brass-hi);transition:background .2s}
+  button.btn:hover{background:rgba(201,164,92,.12)}
+  button.btn.primary{background:linear-gradient(180deg,var(--brass-hi),var(--brass));color:var(--lacquer);font-weight:600}
+  button.btn.primary:hover{filter:brightness(1.07)}
+  button.btn:disabled{opacity:.4;cursor:default}
+  button.btn:focus-visible{outline:2px solid var(--ivory);outline-offset:3px}
+  button.btn.small{padding:7px 12px;font-size:11px}
+
+  /* speltafel */
+  .table{display:grid;grid-template-columns:1fr auto 1fr;gap:24px;align-items:center}
+  .player{border:1px solid var(--line);border-radius:4px;padding:16px;display:flex;flex-direction:column;gap:10px;
+    background:linear-gradient(180deg,rgba(18,48,42,.8),rgba(11,26,22,.8));transition:border-color .3s,box-shadow .3s,transform .3s}
+  .player.active{border-color:var(--brass);box-shadow:0 0 0 1px var(--brass-lo),0 10px 40px -12px rgba(201,164,92,.45);transform:translateY(-2px)}
+  .p-head{display:flex;align-items:center;gap:12px}
+  .disc{width:32px;height:32px;border-radius:50%;flex:none;box-sizing:border-box}
+  .p-label{font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--muted)}
+  .pname{font-family:var(--display);font-size:21px;overflow-wrap:anywhere}
+  .wins{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .wins .n{font-family:var(--display);font-size:40px;line-height:1;color:var(--brass-hi);font-variant-numeric:tabular-nums}
+  .wins .l,.pieces{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+  .pieces b{color:var(--ivory);font-weight:500;letter-spacing:normal;font-size:15px}
+  .turn-tag{font-size:13px;color:var(--brass);min-height:1.2em}
+
+  .plate{padding:14px;border-radius:6px;background:linear-gradient(145deg,var(--felt-2),var(--lacquer));
+    box-shadow:inset 0 0 0 1px var(--brass-lo),inset 0 0 0 6px var(--lacquer),inset 0 0 0 7px var(--line),0 30px 60px -20px rgba(0,0,0,.7)}
+  .board{display:grid;grid-template-columns:repeat(10,1fr);width:min(560px,calc(100vw - 60px));aspect-ratio:1;border:2px solid var(--brass-lo)}
+  .sq{position:relative;display:grid;place-items:center;border:0;margin:0;padding:0;appearance:none}
+  .sq.l{background:var(--sq-light)}
+  .sq.d{background:var(--sq-dark);cursor:default}
+  .sq.d.click{cursor:pointer}
+  .sq.last{background:#2E6150}
+  .sq.d:focus-visible{outline:2px solid var(--brass-hi);outline-offset:-3px}
+  .pc{width:80%;height:80%;border-radius:50%;box-sizing:border-box;position:relative;transition:transform .15s;pointer-events:none}
+  .pc.w,.disc.w{background:radial-gradient(circle at 35% 30%,#FFFDF6,#E8DCC2 55%,#C9B791);border:2px solid #A88C52;box-shadow:inset 0 0 0 4px rgba(168,140,82,.35),0 3px 6px rgba(0,0,0,.45)}
+  .pc.b,.disc.b{background:radial-gradient(circle at 35% 30%,#4A4A44,#1B1B18 60%,#0A0A08);border:2px solid #C9A45C;box-shadow:inset 0 0 0 4px rgba(201,164,92,.28),0 3px 6px rgba(0,0,0,.5)}
+  .pc.k::after{content:"♛";position:absolute;inset:0;display:grid;place-items:center;font-size:min(3.4vw,26px);line-height:1}
+  .pc.w.k::after{color:#9A7A3A}
+  .pc.b.k::after{color:var(--brass-hi)}
+  .sq.mov .pc{box-shadow:0 0 0 3px var(--brass-hi),0 3px 6px rgba(0,0,0,.45)}
+  .sq.sel .pc{transform:scale(1.1);box-shadow:0 0 0 3px #fff,0 0 14px var(--brass-hi)}
+  .sq.tgt::before{content:"";position:absolute;width:34%;height:34%;border-radius:50%;background:var(--brass-hi);box-shadow:0 0 10px var(--brass-hi)}
+  .sq.stp::before{content:"";position:absolute;width:22%;height:22%;border-radius:50%;border:2px solid var(--brass-hi)}
+  .sq.cap::before{content:"✕";position:absolute;color:var(--warn);font-size:min(3vw,22px);opacity:.85}
+  .hint{text-align:center;color:var(--brass-hi);font-size:15px;min-height:1.3em;margin-top:-14px}
+
+  .status{text-align:center;font-family:var(--display);font-size:clamp(20px,3.4vw,27px);min-height:1.4em}
+  .status em{font-style:normal;color:var(--brass-hi)}
+  .sub{text-align:center;color:var(--muted);font-size:13px;margin-top:-16px}
+  .controls{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
+  .confirm{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--ivory);font-size:15px;border:1px solid var(--warn);padding:10px 14px;border-radius:2px;align-self:center;justify-content:center}
+
+  table.rank{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  table.rank th{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:500;text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+  table.rank th:first-child,table.rank td:first-child{text-align:left}
+  table.rank td{padding:9px 8px;text-align:right;border-bottom:1px solid rgba(201,164,92,.12);font-size:16px}
+  table.rank td.nm{font-family:var(--display);font-size:19px}
+  table.rank tr.now td.nm{color:var(--brass-hi)}
+  table.rank td.x{width:1%;white-space:nowrap}
+  .del{background:none;border:0;color:var(--muted);cursor:pointer;font-size:18px;padding:2px 6px}
+  .del:hover{color:var(--warn)}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:calc(100vw - 40px);background:var(--brass-hi);color:var(--lacquer);padding:10px 18px;border-radius:2px;font-weight:600;font-size:15px;box-shadow:0 10px 30px rgba(0,0,0,.5);z-index:5}
+
+  .chat{max-width:640px;width:100%;align-self:center;box-sizing:border-box}
+  .msgs{display:flex;flex-direction:column;gap:8px;max-height:240px;overflow-y:auto;padding:4px 2px;min-height:40px}
+  .msg{max-width:80%;padding:8px 12px;border-radius:12px;font-size:16px;line-height:1.35;overflow-wrap:anywhere;background:rgba(242,234,219,.08);border:1px solid var(--line);align-self:flex-start}
+  .msg .who{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);margin-bottom:2px}
+  .msg.me{align-self:flex-end;background:rgba(201,164,92,.18);border-color:var(--brass-lo)}
+  .msg.sys{align-self:center;background:none;border:0;color:var(--brass-hi);font-family:var(--display);font-size:17px;text-align:center;max-width:100%}
+  .msg.new{animation:pop .5s ease-out}
+  @keyframes pop{from{transform:scale(.9);opacity:0}}
+  .quick{display:flex;flex-wrap:wrap;gap:6px}
+  .quick button{font-family:var(--body);font-size:14px;cursor:pointer;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ivory)}
+  .quick button:hover:not(:disabled){border-color:var(--brass);background:rgba(201,164,92,.1)}
+  .quick button:disabled,.sendrow button:disabled{opacity:.4;cursor:default}
+  .sendrow{display:flex;gap:8px}
+  .sendrow input{flex:1;font-family:var(--body);font-size:17px}
+
+  details.rules{max-width:640px;width:100%;align-self:center;box-sizing:border-box}
+  details.rules summary{cursor:pointer;font-family:var(--display);font-size:20px;color:var(--brass-hi)}
+  details.rules ul{margin:6px 0 0;padding-left:20px;line-height:1.6;color:var(--ivory)}
+
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media (max-width:1000px){
+    .table{grid-template-columns:1fr 1fr;gap:12px}
+    .plate{grid-column:1 / -1;order:3;justify-self:center;padding:8px}
+    .board{width:min(560px,calc(100vw - 52px))}
+  }
+  @media (max-width:760px){
+    .two{grid-template-columns:1fr}
+    .player{padding:10px;gap:6px}
+    .pname{font-size:17px}
+    .wins .n{font-size:30px}
+    .disc{width:24px;height:24px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:0s!important;animation-delay:0s!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Salon-editie · Online</div>
+    <h1>Dammen</h1>
+    <div class="rule"><span>✦</span></div>
+  </header>
+
+  <section class="card" id="dupe" hidden style="max-width:560px;align-self:center;width:100%;box-sizing:border-box;border-color:var(--warn);text-align:center;align-items:center">
+    <h2 style="color:var(--warn)">Het spel staat al open</h2>
+    <div class="muted" style="font-size:17px;color:var(--ivory)">Het damspel is op deze computer al geopend in een ander tabblad of venster van Chrome. Speel daar verder en sluit dit tabblad.</div>
+    <div class="muted">Heb je het andere tabblad net gesloten? Klik dan op de knop hieronder.</div>
+    <button class="btn primary" id="dupeRetry">Opnieuw proberen</button>
+  </section>
+
+  <!-- Gastheer: uitnodigen + standen -->
+  <section class="two" id="hostSetup" hidden>
+    <div class="card">
+      <h2>Uitnodigen</h2>
+      <label class="f">Jouw naam
+        <input class="txt" id="hostName" maxlength="18" autocomplete="off">
+      </label>
+      <div class="muted">Stuur deze link naar je kleinkind. Het is steeds dezelfde link, dus één keer sturen is genoeg. Laat dit scherm open terwijl jullie spelen.</div>
+      <div class="link" id="inviteLink"></div>
+      <div class="muted" id="fileNote" hidden>Let op: deze link werkt pas als het spel online staat (op GitHub Pages).</div>
+      <div class="row">
+        <button class="btn primary" id="copyLink">Link kopiëren</button>
+        <button class="btn" id="waLink">Via WhatsApp sturen</button>
+      </div>
+      <div class="conn"><span class="dot wait" id="hostDot"></span><span id="hostConn">Verbinden met de spelserver…</span></div>
+    </div>
+    <div class="card">
+      <h2 id="rankTitle">Stand per kleinkind</h2>
+      <div class="muted" id="rankEmpty">Nog geen partijen gespeeld.</div>
+      <table class="rank" id="rankTable" hidden>
+        <thead><tr><th>Naam</th><th>Gewonnen</th><th>Verloren</th><th>Remise</th><th>Series</th><th class="x"></th></tr></thead>
+        <tbody id="rankBody"></tbody>
+      </table>
+      <div class="muted" id="rankNote" style="font-size:12px">Gezien vanuit het kleinkind. Series: gewonnen – verloren.</div>
+      <div class="confirm" id="confirmBar" hidden style="align-self:stretch;justify-content:flex-start">
+        <span id="confirmText"></span>
+        <button class="btn small" id="confirmYes">Ja, wissen</button>
+        <button class="btn small" id="confirmNo">Annuleren</button>
+      </div>
+      <div class="row" id="rankCtl"><button class="btn small" id="clearAll">Alle standen wissen</button></div>
+    </div>
+  </section>
+
+  <!-- Kleinkind: meedoen -->
+  <section class="card" id="guestSetup" hidden style="max-width:460px;align-self:center;width:100%;box-sizing:border-box">
+    <h2>Meedoen</h2>
+    <label class="f">Wat is je naam?
+      <input class="txt" id="guestName" maxlength="18" autocomplete="off">
+    </label>
+    <button class="btn primary" id="joinBtn">Meedoen</button>
+    <div class="conn" id="guestConnRow" hidden><span class="dot" id="guestDot"></span><span id="guestConn"></span></div>
+    <button class="btn" id="retryBtn" hidden>Opnieuw verbinden</button>
+  </section>
+
+  <!-- Speltafel -->
+  <section id="game" hidden style="display:flex;flex-direction:column;gap:24px">
+    <div class="table">
+      <div class="player" id="p0">
+        <div class="p-head"><span class="disc" id="d0"></span>
+          <div style="flex:1;min-width:0"><div class="p-label" id="c0"></div><div class="pname" id="n0"></div></div></div>
+        <div class="pieces">Stukken <b id="k0">20</b></div>
+        <div class="wins"><span class="l">Deze serie</span><span class="n" id="w0">0</span></div>
+        <div class="turn-tag" id="t0"></div>
+      </div>
+      <div class="plate"><div class="board" id="board" role="grid" aria-label="Dambord"></div></div>
+      <div class="player" id="p1">
+        <div class="p-head"><span class="disc" id="d1"></span>
+          <div style="flex:1;min-width:0"><div class="p-label" id="c1"></div><div class="pname" id="n1"></div></div></div>
+        <div class="pieces">Stukken <b id="k1">20</b></div>
+        <div class="wins"><span class="l">Deze serie</span><span class="n" id="w1">0</span></div>
+        <div class="turn-tag" id="t1"></div>
+      </div>
+    </div>
+    <div class="status" id="status" aria-live="polite"></div>
+    <div class="hint" id="hint"></div>
+    <div class="sub" id="sub"></div>
+
+    <div class="confirm" id="offerBar" hidden>
+      <span id="offerText"></span>
+      <button class="btn small primary" id="offerYes">Accepteren</button>
+      <button class="btn small" id="offerNo">Weigeren</button>
+    </div>
+    <div class="confirm" id="actConfirm" hidden>
+      <span id="actText"></span>
+      <button class="btn small" id="actYes">Ja</button>
+      <button class="btn small" id="actNo">Annuleren</button>
+    </div>
+    <div class="controls" id="controls">
+      <button class="btn primary" id="next" hidden>Nieuwe partij</button>
+      <button class="btn" id="drawBtn" hidden>Remise aanbieden</button>
+      <button class="btn" id="resignBtn" hidden>Opgeven</button>
+      <button class="btn" id="endSeries" hidden>Serie afsluiten</button>
+    </div>
+
+    <div class="card chat" id="chat">
+      <h2>Berichtjes</h2>
+      <div class="msgs" id="msgs" aria-live="polite"></div>
+      <div class="quick" id="quick"></div>
+      <div class="sendrow">
+        <input class="txt" id="msgInput" maxlength="200" autocomplete="off" placeholder="Typ een berichtje…" aria-label="Berichtje">
+        <button class="btn primary" id="msgSend">Stuur</button>
+      </div>
+    </div>
+
+    <details class="card rules">
+      <summary>Spelregels in het kort</summary>
+      <ul>
+        <li>Wit begint. Na elke partij wissel je van kleur.</li>
+        <li>Een schijf gaat één vakje schuin <b>vooruit</b>.</li>
+        <li><b>Slaan is verplicht</b>, ook achteruit. Kun je op meer manieren slaan, dan moet je de manier kiezen waarmee je de <b>meeste</b> stukken slaat.</li>
+        <li>Je mag één stuk niet twee keer overspringen. Geslagen stukken gaan pas weg als je slag klaar is.</li>
+        <li>Eindigt een schijf op de achterste rij van de tegenstander, dan wordt hij een <b>dam</b> (♛). Een dam mag over de hele lijn schuiven en ook op afstand slaan.</li>
+        <li>Kun je niet meer zetten of heb je geen stukken meer, dan heb je verloren. Jullie kunnen ook samen remise afspreken.</li>
+        <li>Tip: de stukken met een gouden rand kunnen nu zetten. Klik op een stuk en daarna op een gouden stip.</li>
+      </ul>
+    </details>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+  'use strict';
+  const $=id=>document.getElementById(id);
+  /* ---------- Damregels (internationaal dammen, 10×10) ----------
+     Bord: 100 vakjes (rij*10+kolom), speelbaar als (rij+kolom) oneven.
+     1 = witte schijf, 2 = witte dam, -1 = zwarte schijf, -2 = zwarte dam.
+     Wit staat onderaan (rij 6-9) en speelt naar boven. */
+  const Dam=(function(){
+    const N=10,DIRS=[[-1,-1],[-1,1],[1,-1],[1,1]];
+    const inB=(r,c)=>r>=0&&r<N&&c>=0&&c<N;
+    const sgn=Math.sign;
+    function initial(){
+      const b=Array(100).fill(0);
+      for(let r=0;r<N;r++)for(let c=0;c<N;c++)if((r+c)%2===1){if(r<4)b[r*10+c]=-1;else if(r>5)b[r*10+c]=1}
+      return b;
+    }
+    function captures(b,from,side,out){
+      const king=Math.abs(b[from])===2,work=b.slice();work[from]=0;
+      (function dfs(pos,path,capd){
+        let ext=false;const r=Math.floor(pos/10),c=pos%10;
+        for(const [dr,dc] of DIRS){
+          if(!king){
+            const r2=r+2*dr,c2=c+2*dc;if(!inB(r2,c2))continue;
+            const m=(r+dr)*10+c+dc,l=r2*10+c2;
+            if(sgn(work[m])===-side&&!capd.includes(m)&&work[l]===0){ext=true;dfs(l,path.concat(l),capd.concat(m))}
+          }else{
+            let rr=r+dr,cc=c+dc;
+            while(inB(rr,cc)&&work[rr*10+cc]===0){rr+=dr;cc+=dc}
+            if(!inB(rr,cc))continue;
+            const m=rr*10+cc;
+            if(sgn(work[m])!==-side||capd.includes(m))continue;
+            let lr=rr+dr,lc=cc+dc;
+            while(inB(lr,lc)&&work[lr*10+lc]===0){ext=true;dfs(lr*10+lc,path.concat(lr*10+lc),capd.concat(m));lr+=dr;lc+=dc}
+          }
+        }
+        if(!ext&&capd.length)out.push({path,caps:capd});
+      })(from,[from],[]);
+    }
+    function moves(b,side){
+      const caps=[];
+      for(let s=0;s<100;s++)if(sgn(b[s])===side)captures(b,s,side,caps);
+      if(caps.length){const mx=Math.max(...caps.map(m=>m.caps.length));return caps.filter(m=>m.caps.length===mx)}
+      const out=[];
+      for(let s=0;s<100;s++){
+        if(sgn(b[s])!==side)continue;
+        const r=Math.floor(s/10),c=s%10;
+        if(Math.abs(b[s])===1){
+          const dr=side===1?-1:1;
+          for(const dc of [-1,1]){const rr=r+dr,cc=c+dc;if(inB(rr,cc)&&b[rr*10+cc]===0)out.push({path:[s,rr*10+cc],caps:[]})}
+        }else{
+          for(const [dr,dc] of DIRS){let rr=r+dr,cc=c+dc;while(inB(rr,cc)&&b[rr*10+cc]===0){out.push({path:[s,rr*10+cc],caps:[]});rr+=dr;cc+=dc}}
+        }
+      }
+      return out;
+    }
+    function apply(b,m){
+      const nb=b.slice(),from=m.path[0],to=m.path[m.path.length-1];let p=nb[from];
+      nb[from]=0;m.caps.forEach(x=>nb[x]=0);
+      const row=Math.floor(to/10);
+      if(p===1&&row===0)p=2;else if(p===-1&&row===N-1)p=-2;
+      nb[to]=p;return nb;
+    }
+    const count=(b,side)=>b.filter(v=>sgn(v)===side).length;
+    const same=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
+    return {initial,moves,apply,count,same};
+  })();
+
+  const PREFIX='dam-salon-';
+  const K_HOST='dam-online-host-v1', K_GUEST='dam-online-guest-v1';
+  const PEER_OPTS=Object.assign({debug:0},window.BKE_PEER_OPTS||{});
+  const store={
+    get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+    set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+  };
+  const params=new URLSearchParams(location.search);
+  const joinCode=(params.get('spel')||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const isHost=!joinCode;
+  const keyOf=n=>n.trim().toLowerCase();
+
+  function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,3500)}
+  function setConn(dot,txt,cls,msg){$(dot).className='dot'+(cls?' '+cls:'');$(txt).textContent=msg}
+  function freshGame(){return {board:Dam.initial(),white:0,turn:0,over:false,result:null,last:null,offer:null,round:1,wins:[0,0],draws:0,series:1}}
+
+  let view={game:freshGame(),names:['',''],me:0,connected:false,standing:null};
+  const nm=i=>view.names[i]||(i===0?'Gastheer':'Gast');
+  const sideOf=(G,p)=>p===G.white?1:-1;
+  const myTurn=()=>view.connected&&!view.game.over&&view.game.turn===view.me;
+
+  /* ---------- Bord ---------- */
+  const boardEl=$('board'),cellEls=[];
+  for(let v=0;v<100;v++){
+    const vr=Math.floor(v/10),vc=v%10,dark=(vr+vc)%2===1;
+    const el=document.createElement(dark?'button':'div');
+    el.className='sq '+(dark?'d':'l');
+    if(dark){el.addEventListener('click',()=>clickSquare(realSq(v)));el.setAttribute('role','gridcell')}
+    cellEls.push(el);boardEl.appendChild(el);
+  }
+  // Wie zwart speelt, ziet het bord omgedraaid (eigen stukken onderaan).
+  const flipped=()=>sideOf(view.game,view.me)===-1;
+  const realSq=v=>flipped()?99-v:v;
+
+  let sel=null,prefix=[],legal=[];
+  function candidates(){return legal.filter(m=>m.path.length>prefix.length&&prefix.every((x,i)=>m.path[i]===x))}
+  function clickSquare(sq){
+    if(!myTurn())return;
+    const G=view.game,me=sideOf(G,view.me);
+    const own=Math.sign(G.board[sq])===me&&legal.some(m=>m.path[0]===sq);
+    if(own&&(sel===null||prefix.length===1)){sel=sq;prefix=[sq];render();return}
+    if(sel===null)return;
+    const C=candidates();
+    const fin=C.filter(m=>m.path[m.path.length-1]===sq);
+    if(fin.length){
+      const key=m=>m.caps.slice().sort((a,b)=>a-b).join();
+      if(fin.every(m=>key(m)===key(fin[0]))){const mv=fin[0];sel=null;prefix=[];sendMove(mv);return}
+    }
+    if(C.some(m=>m.path[prefix.length]===sq&&m.path.length>prefix.length+1)){prefix.push(sq);render();return}
+    sel=null;prefix=[];render();
+  }
+  let sendMove=()=>{};
+
+  function render(){
+    const G=view.game,mine=myTurn(),me=sideOf(G,view.me);
+    legal=mine?Dam.moves(G.board,me):[];
+    if(sel!==null&&!legal.some(m=>m.path[0]===sel)){sel=null;prefix=[]}
+    const C=sel!==null?candidates():[];
+    const targets=new Set(C.map(m=>m.path[m.path.length-1]));
+    const steps=new Set(C.filter(m=>m.path.length>prefix.length+1).map(m=>m.path[prefix.length]));
+    const movers=new Set(legal.map(m=>m.path[0]));
+    const lastSet=new Set(G.last?G.last.path:[]),capSet=new Set(G.last?G.last.caps:[]);
+    for(let v=0;v<100;v++){
+      const el=cellEls[v];if(!el.classList.contains('d'))continue;
+      const sq=realSq(v),p=G.board[sq];
+      let cls='sq d';
+      if(lastSet.has(sq))cls+=' last';
+      if(mine)cls+=' click';
+      if(sel===null&&movers.has(sq))cls+=' mov';
+      if(sq===sel)cls+=' sel';
+      if(targets.has(sq))cls+=' tgt';else if(steps.has(sq)||prefix.includes(sq)&&sq!==sel)cls+=' stp';
+      if(!p&&capSet.has(sq))cls+=' cap';
+      el.className=cls;
+      const want=p?('pc '+(p>0?'w':'b')+(Math.abs(p)===2?' k':'')):'';
+      const cur=el.firstChild?el.firstChild.className:'';
+      if(want!==cur){el.innerHTML='';if(want){const d=document.createElement('div');d.className=want;el.appendChild(d)}}
+      el.setAttribute('aria-label',p?(p>0?'wit':'zwart')+(Math.abs(p)===2?'e dam':'e schijf'):'leeg vakje');
+    }
+    for(const i of [0,1]){
+      const s=sideOf(G,i);
+      $('n'+i).textContent=nm(i)+(i===view.me?' (jij)':'');
+      $('c'+i).textContent=s===1?'Wit':'Zwart';
+      $('d'+i).className='disc '+(s===1?'w':'b');
+      $('k'+i).textContent=Dam.count(G.board,s);
+      $('w'+i).textContent=G.wins[i];
+      $('p'+i).classList.toggle('active',view.connected&&!G.over&&G.turn===i);
+      $('t'+i).textContent=!view.connected||G.over?'':G.turn===i?'Aan zet':'';
+    }
+    const st=$('status'),put=(name,rest)=>{st.innerHTML='<em></em>'+rest;st.querySelector('em').textContent=name};
+    let hint='';
+    if(!view.connected)st.textContent=isHost?'Wachten op je tegenspeler…':'Geen verbinding';
+    else if(G.over){
+      const R=G.result||{};
+      if(R.winner==null)st.textContent='Remise';
+      else if(R.winner===view.me)st.textContent='Jij hebt gewonnen!';
+      else put(nm(R.winner),' heeft gewonnen');
+      hint=R.reason==='resign'?nm(R.winner==null?0:1-R.winner)+' heeft opgegeven':R.reason==='nomoves'?nm(1-R.winner)+' kan niet meer zetten':R.reason==='draw'?'Remise afgesproken':'';
+    }else if(mine){
+      st.textContent='Jij bent aan zet';
+      const n=legal.length&&legal[0].caps.length;
+      if(n)hint='Je moet slaan'+(n>1?' – '+n+' stukken':'')+'!';
+    }else put(nm(G.turn),' denkt na…');
+    $('hint').textContent=hint;
+    let sub='Serie '+G.series+'  ·  partij '+G.round+'  ·  '+G.draws+'× remise';
+    const s=view.standing;
+    if(s)sub+='  ·  Totaal tegen '+nm(0)+': '+s.w+' gewonnen, '+s.l+' verloren, '+s.d+' remise'+((s.sw||s.sl)?'  ·  series: '+s.sw+' gewonnen, '+s.sl+' verloren':'');
+    $('sub').textContent=sub;
+
+    const live=view.connected&&!G.over,actOpen=!$('actConfirm').hidden;
+    $('next').hidden=!(view.connected&&G.over);
+    $('drawBtn').hidden=!live||actOpen||G.offer!=null;
+    $('resignBtn').hidden=!live||actOpen;
+    $('endSeries').hidden=!(isHost&&view.connected&&G.over&&(G.wins[0]+G.wins[1]+G.draws>0))||actOpen;
+    const incoming=live&&G.offer!=null&&G.offer!==view.me;
+    $('offerBar').hidden=!incoming;
+    if(incoming)$('offerText').textContent=nm(G.offer)+' biedt remise aan.';
+    if(live&&G.offer===view.me)$('hint').textContent='Je hebt remise aangeboden. Wachten op antwoord…';
+    $('msgInput').disabled=$('msgSend').disabled=!view.connected;
+    document.querySelectorAll('#quick button').forEach(b=>b.disabled=!view.connected);
+  }
+
+  /* ---------- Bevestigen (opgeven, serie afsluiten) ---------- */
+  let actFn=null;
+  function askAct(text,yes,fn){actFn=fn;$('actText').textContent=text;$('actYes').textContent=yes;$('actConfirm').hidden=false;render();$('actNo').focus()}
+  $('actNo').addEventListener('click',()=>{actFn=null;$('actConfirm').hidden=true;render()});
+  $('actYes').addEventListener('click',()=>{const f=actFn;actFn=null;$('actConfirm').hidden=true;if(f)f();render()});
+
+  /* ---------- Berichtjes ---------- */
+  let chatLog=[],chatSend=()=>{};
+  const QUICK=['👍','Goede zet!','Oei! 😮','Haha 😄','Even denken… 🤔','Goed gespeeld!','Nog een partij?','Tot de volgende keer! 👋'];
+  QUICK.forEach(q=>{const b=document.createElement('button');b.textContent=q;b.addEventListener('click',()=>chatSend(q));$('quick').appendChild(b)});
+  function renderChat(animateLast){
+    const box=$('msgs');box.innerHTML='';
+    if(!chatLog.length){const d=document.createElement('div');d.className='muted';d.textContent='Stuur tijdens het spelen een berichtje naar elkaar.';box.appendChild(d);return}
+    chatLog.forEach((m,k)=>{
+      const d=document.createElement('div');
+      d.className='msg'+(m.from==='sys'?' sys':m.from===view.me?' me':'')+(animateLast&&k===chatLog.length-1?' new':'');
+      if(m.from!=='sys'){const w=document.createElement('span');w.className='who';w.textContent=m.from===view.me?'Jij':nm(m.from);d.appendChild(w)}
+      d.appendChild(document.createTextNode(m.text));box.appendChild(d);
+    });
+    box.scrollTop=box.scrollHeight;
+  }
+  const cleanMsg=m=>({from:m.from==='sys'?'sys':(m.from===1?1:0),text:String(m.text||'').slice(0,200)});
+  function addChat(m,announce){
+    m=cleanMsg(m);if(!m.text.trim())return;
+    chatLog.push(m);if(chatLog.length>60)chatLog.shift();renderChat(true);
+    if(announce&&m.from!==view.me)toast(m.from==='sys'?m.text:nm(m.from)+': '+m.text);
+  }
+  function sendTyped(){const t=$('msgInput').value.trim();if(!t||!view.connected)return;chatSend(t);$('msgInput').value=''}
+  $('msgSend').addEventListener('click',sendTyped);
+  $('msgInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendTyped()});
+  renderChat();
+
+  /* ---------- Levenstekens ---------- */
+  function heartbeat(conn,onLost){
+    let last=Date.now();
+    conn.on('data',()=>{last=Date.now()});
+    const iv=setInterval(()=>{
+      if(!conn.open){clearInterval(iv);return}
+      try{conn.send({t:'ping'})}catch(e){}
+      if(Date.now()-last>11000){clearInterval(iv);try{conn.close()}catch(e){};onLost()}
+    },4000);
+    return ()=>clearInterval(iv);
+  }
+
+  let onNext=()=>{},onDraw=()=>{},onResign=()=>{},onOffer=()=>{};
+  $('next').addEventListener('click',()=>onNext());
+  $('drawBtn').addEventListener('click',()=>onDraw());
+  $('resignBtn').addEventListener('click',()=>askAct('Weet je zeker dat je wilt opgeven?','Ja, opgeven',()=>onResign()));
+  $('offerYes').addEventListener('click',()=>onOffer(true));
+  $('offerNo').addEventListener('click',()=>onOffer(false));
+
+  /* =================== GASTHEER =================== */
+  function startHost(){
+    const H=store.get(K_HOST,{});
+    if(!H.code)H.code=Array.from(crypto.getRandomValues(new Uint8Array(6)),b=>'abcdefghjkmnpqrstuvwxyz23456789'[b%31]).join('');
+    H.name=H.name||'Opa';H.players=H.players||{};store.set(K_HOST,H);
+
+    $('hostSetup').hidden=false;$('game').hidden=false;
+    const link=location.origin+location.pathname+'?spel='+H.code;
+    $('inviteLink').textContent=link;
+    $('fileNote').hidden=location.protocol!=='file:';
+    $('hostName').value=H.name;
+    $('hostName').addEventListener('input',e=>{H.name=e.target.value.trim()||'Opa';store.set(K_HOST,H);view.names[0]=H.name;render();renderRank();push()});
+    $('copyLink').addEventListener('click',async()=>{
+      try{await navigator.clipboard.writeText(link);toast('Link gekopieerd')}
+      catch(e){const r=document.createRange();r.selectNodeContents($('inviteLink'));const s=getSelection();s.removeAllRanges();s.addRange(r);toast('Selecteer en kopieer de link')}
+    });
+    $('waLink').addEventListener('click',()=>{
+      const msg='Zin in een partijtje dammen met '+H.name+'? Klik op deze link: '+link;
+      window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank','noopener');
+    });
+
+    view={game:freshGame(),names:[H.name,''],me:0,connected:false,standing:null};
+    let conn=null,guestKey=null,stopBeat=null,pending=null;
+
+    function rankRows(){return Object.values(H.players).sort((a,b)=>(b.w+b.l+b.d)-(a.w+a.l+a.d)||a.name.localeCompare(b.name,'nl'))}
+    function renderRank(){
+      const rows=rankRows();
+      $('rankTitle').textContent='Stand tegen '+H.name;
+      $('rankEmpty').hidden=rows.length>0;$('rankTable').hidden=!rows.length;$('rankCtl').hidden=!rows.length||pending!=null;$('rankNote').hidden=!rows.length;
+      const tb=$('rankBody');tb.innerHTML='';
+      rows.forEach(p=>{
+        const tr=document.createElement('tr');if(keyOf(p.name)===guestKey&&view.connected)tr.className='now';
+        const td=(t,c)=>{const d=document.createElement('td');d.textContent=t;if(c)d.className=c;tr.appendChild(d);return d};
+        td(p.name,'nm');td(p.w);td(p.l);td(p.d);td((p.sw||0)+' – '+(p.sl||0));
+        const x=td('','x'),b=document.createElement('button');b.className='del';b.textContent='×';
+        b.title=b.ariaLabel='Stand van '+p.name+' wissen';
+        b.addEventListener('click',()=>ask('Stand van '+p.name+' wissen?',()=>{delete H.players[keyOf(p.name)]}));
+        x.appendChild(b);tb.appendChild(tr);
+      });
+    }
+    function ask(text,fn){pending=fn;$('confirmText').textContent=text;$('confirmBar').hidden=false;$('rankCtl').hidden=true;$('confirmNo').focus()}
+    function closeAsk(){pending=null;$('confirmBar').hidden=true;renderRank()}
+    $('confirmNo').addEventListener('click',closeAsk);
+    $('confirmYes').addEventListener('click',()=>{if(pending)pending();store.set(K_HOST,H);closeAsk();push()});
+    $('clearAll').addEventListener('click',()=>ask('Alle standen van alle kleinkinderen wissen?',()=>{H.players={}}));
+
+    const playerRec=()=>guestKey&&(H.players[guestKey]||(H.players[guestKey]={name:view.names[1],w:0,l:0,d:0}));
+    function finish(winner,reason){
+      const G=view.game;G.over=true;G.offer=null;G.result={winner,reason};
+      if(winner==null)G.draws++;else G.wins[winner]++;
+      const p=playerRec();
+      if(p){p.name=view.names[1];if(winner==null)p.d++;else if(winner===1)p.w++;else p.l++;store.set(K_HOST,H);renderRank()}
+    }
+    function push(){
+      if(!conn||!conn.open)return;
+      const p=guestKey&&H.players[guestKey];
+      try{conn.send({t:'state',game:view.game,names:view.names,
+        standing:p?{w:p.w,l:p.l,d:p.d,sw:p.sw||0,sl:p.sl||0}:{w:0,l:0,d:0,sw:0,sl:0}})}catch(e){}
+    }
+    function update(){render();push()}
+    function play(path,who){
+      const G=view.game;
+      if(!view.connected||G.over||G.turn!==who||!Array.isArray(path))return;
+      const mv=Dam.moves(G.board,sideOf(G,who)).find(m=>Dam.same(m.path,path));
+      if(!mv){push();return}
+      G.board=Dam.apply(G.board,mv);G.last={path:mv.path,caps:mv.caps};G.offer=null;
+      G.turn=1-who;
+      if(!Dam.moves(G.board,sideOf(G,G.turn)).length)finish(who,'nomoves');
+      update();
+    }
+    sendMove=mv=>play(mv.path,0);
+    function newGame(){
+      const G=view.game;if(!G.over)return;
+      const ng=freshGame();Object.assign(ng,{wins:G.wins,draws:G.draws,series:G.series,round:G.round+1,white:1-G.white});ng.turn=ng.white;
+      view.game=ng;update();
+    }
+    onNext=newGame;
+    onDraw=()=>{const G=view.game;if(G.over||G.offer!=null)return;G.offer=0;update()};
+    onResign=()=>{if(!view.game.over){finish(1,'resign');update()}};
+    onOffer=yes=>{const G=view.game;if(G.over||G.offer!==1)return;
+      if(yes)finish(null,'draw');else{G.offer=null;sysMsg(H.name+' speelt liever door.')}update()};
+
+    chatSend=t=>{if(!conn||!conn.open)return;addChat({from:0,text:t});try{conn.send({t:'chat',from:0,text:t})}catch(e){}};
+    function sysMsg(t){addChat({from:'sys',text:t});if(conn&&conn.open)try{conn.send({t:'chat',from:'sys',text:t})}catch(e){}}
+
+    $('endSeries').addEventListener('click',()=>{
+      const G=view.game;
+      askAct('Serie '+G.series+' afsluiten? Stand: '+nm(0)+' '+G.wins[0]+' – '+nm(1)+' '+G.wins[1]+'. Daarna begint de teller weer bij 0.','Ja, afsluiten',()=>{
+        const a=G.wins[0],b=G.wins[1],p=playerRec();let uitslag;
+        if(b>a){uitslag=nm(1)+' wint de serie!';if(p)p.sw=(p.sw||0)+1}
+        else if(a>b){uitslag=nm(0)+' wint de serie!';if(p)p.sl=(p.sl||0)+1}
+        else uitslag='Gelijk opgegaan!';
+        store.set(K_HOST,H);renderRank();
+        sysMsg('Serie '+G.series+' afgesloten: '+nm(0)+' '+a+' – '+nm(1)+' '+b+'. '+uitslag);
+        const ng=freshGame();ng.series=G.series+1;ng.white=1-G.white;ng.turn=ng.white;
+        view.game=ng;update();
+      });
+    });
+
+    function dropGuest(msg){
+      if(stopBeat)stopBeat();stopBeat=null;conn=null;view.connected=false;
+      setConn('hostDot','hostConn','wait',msg);render();renderRank();
+    }
+    let peer;
+    function openPeer(){
+      peer=new Peer(PREFIX+H.code,PEER_OPTS);
+      peer.on('open',()=>{if(!conn)setConn('hostDot','hostConn','wait','Klaar. Wachten tot een kleinkind de link opent…')});
+      peer.on('disconnected',()=>{if(!$('dupe').hidden)return;setConn('hostDot','hostConn','bad','Verbinding met de spelserver kwijt, opnieuw proberen…');setTimeout(()=>{try{peer.reconnect()}catch(e){}},3000)});
+      peer.on('error',err=>{
+        if(err.type==='unavailable-id'){$('hostSetup').hidden=true;$('game').hidden=true;$('dupe').hidden=false;document.title='Staat al open – Dammen'}
+        else if(err.type==='peer-unavailable'){}
+        else if(['network','server-error','socket-error','socket-closed'].includes(err.type))setConn('hostDot','hostConn','bad','Geen verbinding met de spelserver. Controleer je internet; ik probeer het opnieuw…');
+        else setConn('hostDot','hostConn','bad','Er ging iets mis ('+err.type+'). Herlaad de pagina.');
+      });
+      peer.on('connection',c=>{
+        c.on('data',msg=>{
+          if(!msg||typeof msg!=='object')return;
+          if(msg.t==='hello'){
+            const name=String(msg.name||'').trim().slice(0,18)||'Kleinkind';
+            if(conn&&conn!==c&&conn.open){try{c.send({t:'busy',name:view.names[1]})}catch(e){};setTimeout(()=>c.close(),500);return}
+            const k=keyOf(name);
+            if(k!==guestKey){view.game=freshGame();chatLog=[];renderChat()}   // ander kleinkind: nieuwe partij
+            conn=c;guestKey=k;view.names[1]=name;view.connected=true;
+            if(stopBeat)stopBeat();
+            stopBeat=heartbeat(c,()=>{if(conn===c)dropGuest(name+' is weg. Wachten tot de link opnieuw geopend wordt…')});
+            setConn('hostDot','hostConn','ok',name+' speelt mee');
+            render();renderRank();push();
+            try{c.send({t:'chatlog',items:chatLog})}catch(e){}
+          }else if(c===conn){
+            if(msg.t==='bye'){try{c.close()}catch(e){};dropGuest(view.names[1]+' is weg. Wachten tot de link opnieuw geopend wordt…')}
+            else if(msg.t==='move')play(msg.path,1);
+            else if(msg.t==='next')newGame();
+            else if(msg.t==='draw'){const G=view.game;if(!G.over&&G.offer==null){G.offer=1;update()}}
+            else if(msg.t==='offerReply'){const G=view.game;if(!G.over&&G.offer===0){if(msg.yes)finish(null,'draw');else{G.offer=null;sysMsg(view.names[1]+' speelt liever door.')}update()}}
+            else if(msg.t==='resign'){if(!view.game.over){finish(0,'resign');update()}}
+            else if(msg.t==='chat')addChat({from:1,text:msg.text},true);
+          }
+        });
+        c.on('close',()=>{if(conn===c)dropGuest(view.names[1]+' is weg. Wachten tot de link opnieuw geopend wordt…')});
+      });
+    }
+    $('dupeRetry').addEventListener('click',()=>location.reload());
+    render();renderRank();openPeer();
+  }
+
+  /* =================== KLEINKIND =================== */
+  function startGuest(){
+    const Gs=store.get(K_GUEST,{});
+    $('guestSetup').hidden=false;$('guestName').value=Gs.name||'';
+    view={game:freshGame(),names:['',''],me:1,connected:false,standing:null};
+    let peer=null,conn=null,stopBeat=null;
+    const send=o=>{if(conn&&conn.open)try{conn.send(o)}catch(e){}};
+
+    function show(cls,msg){$('guestConnRow').hidden=false;setConn('guestDot','guestConn',cls,msg)}
+    function lost(msg){
+      if(stopBeat)stopBeat();stopBeat=null;conn=null;view.connected=false;render();
+      show('bad',msg);$('retryBtn').hidden=false;$('guestSetup').hidden=false;$('guestName').disabled=false;
+    }
+    function connect(){
+      const name=$('guestName').value.trim();
+      if(!name){$('guestName').focus();toast('Vul eerst je naam in');return}
+      Gs.name=name;store.set(K_GUEST,Gs);
+      $('joinBtn').hidden=true;$('retryBtn').hidden=true;$('guestName').disabled=true;
+      show('wait','Verbinden…');
+      const go=()=>{
+        const c=peer.connect(PREFIX+joinCode,{reliable:true});
+        const timer=setTimeout(()=>{if(!c.open){try{c.close()}catch(e){};lost('Geen antwoord. Staat het spel bij je opa of oma open? Probeer het daarna opnieuw.')}},15000);
+        c.on('open',()=>{clearTimeout(timer);conn=c;c.send({t:'hello',name});
+          stopBeat=heartbeat(c,()=>{if(conn===c)lost('De verbinding is verbroken.')})});
+        c.on('data',msg=>{
+          if(!msg||typeof msg!=='object')return;
+          if(msg.t==='busy'){clearTimeout(timer);conn=null;lost('Er speelt nu al iemand anders ('+(msg.name||'iemand')+'). Probeer het straks nog eens.');return}
+          if(msg.t==='chatlog'&&Array.isArray(msg.items)){chatLog=msg.items.slice(-60).map(cleanMsg);renderChat();return}
+          if(msg.t==='chat'){addChat({from:msg.from==='sys'?'sys':0,text:msg.text},true);return}
+          if(msg.t==='state'&&msg.game&&Array.isArray(msg.game.board)&&msg.game.board.length===100){
+            view.game=msg.game;view.names=msg.names||['',''];view.connected=true;view.standing=msg.standing||null;
+            $('guestSetup').hidden=true;$('game').hidden=false;render();
+          }
+        });
+        c.on('close',()=>{clearTimeout(timer);if(conn===c)lost('De verbinding is verbroken.')});
+      };
+      if(peer&&!peer.destroyed&&peer.open)go();
+      else{
+        if(peer)try{peer.destroy()}catch(e){}
+        peer=new Peer(undefined,PEER_OPTS);
+        peer.on('open',go);
+        peer.on('error',err=>{
+          if(err.type==='peer-unavailable')lost('Het spel staat nu niet open. Vraag of het spel geopend wordt en probeer het daarna opnieuw.');
+          else if(['network','server-error','socket-error','socket-closed'].includes(err.type))lost('Geen verbinding met de spelserver. Controleer je internet.');
+          else lost('Er ging iets mis ('+err.type+').');
+        });
+      }
+    }
+    sendMove=mv=>{   // direct tonen; de gastheer stuurt daarna de echte stand terug
+      const G=view.game;G.board=Dam.apply(G.board,mv);G.last={path:mv.path,caps:mv.caps};G.turn=0;G.offer=null;render();
+      send({t:'move',path:mv.path});
+    };
+    onNext=()=>send({t:'next'});
+    onDraw=()=>{view.game.offer=1;render();send({t:'draw'})};
+    onResign=()=>send({t:'resign'});
+    onOffer=yes=>{view.game.offer=null;render();send({t:'offerReply',yes})};
+    chatSend=t=>{if(!conn||!conn.open)return;addChat({from:1,text:t});send({t:'chat',text:t})};
+    addEventListener('pagehide',()=>send({t:'bye'}));
+    $('joinBtn').addEventListener('click',connect);
+    $('retryBtn').addEventListener('click',connect);
+    $('guestName').addEventListener('keydown',e=>{if(e.key==='Enter')connect()});
+    if(Gs.name)$('joinBtn').focus();else $('guestName').focus();
+  }
+
+  if(typeof Peer==='undefined'){
+    document.querySelector('.wrap').insertAdjacentHTML('beforeend','<div class="card"><h2>Kan niet starten</h2><div class="muted">Het onderdeel voor online spelen kon niet geladen worden. Controleer je internetverbinding en herlaad de pagina.</div></div>');
+    return;
+  }
+  isHost?startHost():startGuest();
+  if(window.BKE_PEER_OPTS)window.__dam={get view(){return view},realSq};   // alleen voor testen
+})();
+</script>
+</body>
+</html>
