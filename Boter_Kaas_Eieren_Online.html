@@ -116,6 +116,20 @@
   .confirm{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--ivory);font-size:14px;border:1px solid var(--warn);padding:10px;border-radius:2px}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--brass-hi);color:var(--lacquer);padding:10px 18px;border-radius:2px;font-weight:600;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
 
+  .chat{max-width:640px;width:100%;align-self:center;box-sizing:border-box}
+  .msgs{display:flex;flex-direction:column;gap:8px;max-height:240px;overflow-y:auto;padding:4px 2px;min-height:40px}
+  .msg{max-width:80%;padding:8px 12px;border-radius:12px;font-size:16px;line-height:1.35;overflow-wrap:anywhere;background:rgba(242,234,219,.08);border:1px solid var(--line);align-self:flex-start}
+  .msg .who{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);margin-bottom:2px}
+  .msg.me{align-self:flex-end;background:rgba(201,164,92,.18);border-color:var(--brass-lo)}
+  .msg.sys{align-self:center;background:none;border:0;color:var(--brass-hi);font-family:var(--display);font-size:17px;text-align:center;max-width:100%}
+  .msg.new{animation:pop .5s ease-out}
+  @keyframes pop{from{transform:scale(.9);opacity:0}}
+  .quick{display:flex;flex-wrap:wrap;gap:6px}
+  .quick button{font-family:var(--body);font-size:14px;cursor:pointer;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ivory)}
+  .quick button:hover:not(:disabled){border-color:var(--brass);background:rgba(201,164,92,.1)}
+  .quick button:disabled,.sendrow button:disabled{opacity:.4;cursor:default}
+  .sendrow{display:flex;gap:8px}
+  .sendrow input{flex:1;font-family:var(--body);font-size:17px}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
   @media (max-width:760px){
     .two{grid-template-columns:1fr}
@@ -140,6 +154,14 @@
     <div class="rule"><span>✦</span></div>
   </header>
 
+  <!-- Melding: spel staat al open -->
+  <section class="card" id="dupe" hidden style="max-width:560px;align-self:center;width:100%;box-sizing:border-box;border-color:var(--warn);text-align:center;align-items:center">
+    <h2 style="color:var(--warn)">Het spel staat al open</h2>
+    <div class="muted" style="font-size:17px;color:var(--ivory)">Het spel is op deze computer al geopend in een ander tabblad of venster van Chrome. Speel daar verder en sluit dit tabblad.</div>
+    <div class="muted">Heb je het andere tabblad net gesloten? Klik dan op de knop hieronder.</div>
+    <button class="btn primary" id="dupeRetry">Opnieuw proberen</button>
+  </section>
+
   <!-- Gastheer (opa): uitnodigen -->
   <section class="two" id="hostSetup" hidden>
     <div class="card">
@@ -160,10 +182,10 @@
       <h2 id="rankTitle">Stand per kleinkind</h2>
       <div class="muted" id="rankEmpty">Nog geen potjes gespeeld.</div>
       <table class="rank" id="rankTable" hidden>
-        <thead><tr><th>Naam</th><th>Gewonnen</th><th>Verloren</th><th>Gelijk</th><th class="x" id="rankDelHead"></th></tr></thead>
+        <thead><tr><th>Naam</th><th>Gewonnen</th><th>Verloren</th><th>Gelijk</th><th>Series</th><th class="x" id="rankDelHead"></th></tr></thead>
         <tbody id="rankBody"></tbody>
       </table>
-      <div class="muted" id="rankNote" style="font-size:12px">Gewonnen en verloren zijn gezien vanuit het kleinkind.</div>
+      <div class="muted" id="rankNote" style="font-size:12px">Gewonnen en verloren zijn gezien vanuit het kleinkind. Series: gewonnen – verloren.</div>
       <div class="confirm" id="confirmBar" hidden>
         <span id="confirmText"></span>
         <button class="btn small" id="confirmYes">Ja, wissen</button>
@@ -192,7 +214,7 @@
           <svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><g stroke="#C9A45C" stroke-width="12" stroke-linecap="round"><line x1="18" y1="18" x2="82" y2="82"/><line x1="82" y1="18" x2="18" y2="82"/></g></svg>
           <div style="flex:1;min-width:0"><div class="p-label">Kruis</div><div class="pname" id="n0"></div></div>
         </div>
-        <div class="wins"><span class="l">Gewonnen</span><span class="n" id="w0">0</span></div>
+        <div class="wins"><span class="l">Deze serie</span><span class="n" id="w0">0</span></div>
         <div class="turn-tag" id="t0"></div>
       </div>
       <div class="plate"><div class="board" id="board" role="grid" aria-label="Speelbord"></div></div>
@@ -201,13 +223,31 @@
           <svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="33" fill="none" stroke="#F2EADB" stroke-width="12"/></svg>
           <div style="flex:1;min-width:0"><div class="p-label">Rondje</div><div class="pname" id="n1"></div></div>
         </div>
-        <div class="wins"><span class="l">Gewonnen</span><span class="n" id="w1">0</span></div>
+        <div class="wins"><span class="l">Deze serie</span><span class="n" id="w1">0</span></div>
         <div class="turn-tag" id="t1"></div>
       </div>
     </div>
     <div class="status" id="status" aria-live="polite"></div>
     <div class="sub" id="sub"></div>
-    <div class="controls"><button class="btn primary" id="next" hidden>Volgende ronde</button></div>
+    <div class="controls">
+      <button class="btn primary" id="next" hidden>Volgende ronde</button>
+      <button class="btn" id="endSeries" hidden>Serie afsluiten</button>
+    </div>
+    <div class="confirm" id="seriesConfirm" hidden style="align-self:center">
+      <span id="seriesText"></span>
+      <button class="btn small" id="seriesYes">Ja, afsluiten</button>
+      <button class="btn small" id="seriesNo">Annuleren</button>
+    </div>
+
+    <div class="card chat" id="chat">
+      <h2>Berichtjes</h2>
+      <div class="msgs" id="msgs" aria-live="polite"><div class="muted" id="msgsEmpty">Stuur tijdens het spelen een berichtje naar elkaar.</div></div>
+      <div class="quick" id="quick"></div>
+      <div class="sendrow">
+        <input class="txt" id="msgInput" maxlength="200" autocomplete="off" placeholder="Typ een berichtje…" aria-label="Berichtje">
+        <button class="btn primary" id="msgSend">Stuur</button>
+      </div>
+    </div>
   </section>
 </div>
 <div class="toast" id="toast" hidden></div>
@@ -230,9 +270,9 @@
   const joinCode=(params.get('spel')||'').toLowerCase().replace(/[^a-z0-9]/g,'');
   const isHost=!joinCode;
 
-  function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2200)}
+  function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,3500)}
   function setConn(dot,txt,cls,msg){$(dot).className='dot'+(cls?' '+cls:'');$(txt).textContent=msg}
-  function freshGame(){return {board:Array(9).fill(null),turn:0,starter:0,over:false,winLine:null,round:1,wins:[0,0],draws:0}}
+  function freshGame(){return {board:Array(9).fill(null),turn:0,starter:0,over:false,winLine:null,round:1,wins:[0,0],draws:0,series:1}}
   const keyOf=n=>n.trim().toLowerCase();
 
   /* ---------- Bord tekenen (gedeeld door gastheer en gast) ---------- */
@@ -313,12 +353,40 @@
       else st.textContent='Gelijkspel';
     }else if(mine)st.textContent='Jij bent aan zet';
     else put(nm(G.turn),' is aan zet');
-    let sub='Ronde '+G.round+'  ·  '+G.draws+'× gelijkspel';
+    let sub='Serie '+(G.series||1)+'  ·  ronde '+G.round+'  ·  '+G.draws+'× gelijkspel';
     const s=view.standing;
-    if(s)sub+='  ·  Jouw stand tegen '+nm(0)+': '+s.w+' gewonnen, '+s.l+' verloren, '+s.d+' gelijk';
+    if(s)sub+='  ·  Totaal tegen '+nm(0)+': '+s.w+' gewonnen, '+s.l+' verloren, '+s.d+' gelijk'+((s.sw||s.sl)?'  ·  series: '+(s.sw||0)+' gewonnen, '+(s.sl||0)+' verloren':'');
     $('sub').textContent=sub;
     $('next').hidden=!(view.connected&&G.over);
+    $('endSeries').hidden=!(isHost&&view.connected&&(G.wins[0]+G.wins[1]+G.draws>0));
+    $('msgInput').disabled=$('msgSend').disabled=!view.connected;
+    document.querySelectorAll('#quick button').forEach(b=>b.disabled=!view.connected);
   }
+
+  /* ---------- Berichtjes ---------- */
+  let chatLog=[],chatSend=()=>{};
+  const QUICK=['👍','Goed gedaan!','Jij bent aan de beurt','Haha 😄','Oei! 😮','Nog een potje?','Tot de volgende keer! 👋'];
+  QUICK.forEach(q=>{const b=document.createElement('button');b.textContent=q;b.addEventListener('click',()=>chatSend(q));$('quick').appendChild(b)});
+  function renderChat(animateLast){
+    const box=$('msgs');box.innerHTML='';
+    if(!chatLog.length){const d=document.createElement('div');d.className='muted';d.textContent='Stuur tijdens het spelen een berichtje naar elkaar.';box.appendChild(d);return}
+    chatLog.forEach((m,k)=>{
+      const d=document.createElement('div');
+      d.className='msg'+(m.from==='sys'?' sys':m.from===view.me?' me':'')+(animateLast&&k===chatLog.length-1?' new':'');
+      if(m.from!=='sys'){const w=document.createElement('span');w.className='who';w.textContent=m.from===view.me?'Jij':nm(m.from);d.appendChild(w)}
+      d.appendChild(document.createTextNode(m.text));box.appendChild(d);
+    });
+    box.scrollTop=box.scrollHeight;
+  }
+  function addChat(m,announce){
+    m={from:m.from==='sys'?'sys':(m.from===1?1:0),text:String(m.text||'').slice(0,200)};
+    if(!m.text.trim())return;
+    chatLog.push(m);if(chatLog.length>60)chatLog.shift();renderChat(true);
+    if(announce&&m.from!==view.me)toast(m.from==='sys'?m.text:nm(m.from)+': '+m.text);
+  }
+  function sendTyped(){const t=$('msgInput').value.trim();if(!t||!view.connected)return;chatSend(t);$('msgInput').value=''}
+  $('msgSend').addEventListener('click',sendTyped);
+  $('msgInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendTyped()});
 
   function winnerCheck(G){
     const p=G.turn;
@@ -380,7 +448,7 @@
       rows.forEach(p=>{
         const tr=document.createElement('tr');if(keyOf(p.name)===guestKey&&view.connected)tr.className='now';
         const td=(t,c)=>{const d=document.createElement('td');d.textContent=t;if(c)d.className=c;tr.appendChild(d);return d};
-        td(p.name,'nm');td(p.w);td(p.l);td(p.d);
+        td(p.name,'nm');td(p.w);td(p.l);td(p.d);td((p.sw||0)+' – '+(p.sl||0));
         const x=td('','x');const b=document.createElement('button');b.className='del';b.textContent='×';b.title='Stand van '+p.name+' wissen';
         b.setAttribute('aria-label','Stand van '+p.name+' wissen');
         b.addEventListener('click',()=>ask('Stand van '+p.name+' wissen?',()=>{delete H.players[keyOf(p.name)]}));
@@ -404,7 +472,7 @@
       if(!conn||!conn.open)return;
       const p=guestKey&&H.players[guestKey];
       try{conn.send({t:'state',game:view.game,names:view.names,
-        standing:p?{w:p.w,l:p.l,d:p.d}:{w:0,l:0,d:0}})}catch(e){}
+        standing:p?{w:p.w,l:p.l,d:p.d,sw:p.sw||0,sl:p.sl||0}:{w:0,l:0,d:0,sw:0,sl:0}})}catch(e){}
     }
     function apply(i,who){
       const G=view.game;
@@ -416,6 +484,29 @@
     onNext=()=>{const G=view.game;if(!G.over)return;
       G.board=Array(9).fill(null);G.over=false;G.winLine=null;G.turn=G.starter;G.round++;render();push()};
 
+    chatSend=t=>{if(!conn||!conn.open)return;addChat({from:0,text:t});try{conn.send({t:'chat',from:0,text:t})}catch(e){}};
+    function sysMsg(t){addChat({from:'sys',text:t});if(conn&&conn.open)try{conn.send({t:'chat',from:'sys',text:t})}catch(e){}}
+
+    $('endSeries').addEventListener('click',()=>{
+      const G=view.game;
+      $('seriesText').textContent='Serie '+G.series+' afsluiten? Stand: '+nm(0)+' '+G.wins[0]+' – '+nm(1)+' '+G.wins[1]+'. Daarna begint de teller weer bij 0.';
+      $('seriesConfirm').hidden=false;$('endSeries').hidden=true;$('seriesNo').focus();
+    });
+    $('seriesNo').addEventListener('click',()=>{$('seriesConfirm').hidden=true;render()});
+    $('seriesYes').addEventListener('click',()=>{
+      $('seriesConfirm').hidden=true;
+      const G=view.game,a=G.wins[0],b=G.wins[1];
+      const p=guestKey&&(H.players[guestKey]||(H.players[guestKey]={name:view.names[1],w:0,l:0,d:0}));
+      let uitslag;
+      if(b>a){uitslag=nm(1)+' wint de serie!';if(p)p.sw=(p.sw||0)+1}
+      else if(a>b){uitslag=nm(0)+' wint de serie!';if(p)p.sl=(p.sl||0)+1}
+      else uitslag='Gelijk opgegaan!';
+      store.set(K_HOST,H);renderRank();
+      sysMsg('Serie '+G.series+' afgesloten: '+nm(0)+' '+a+' – '+nm(1)+' '+b+'. '+uitslag);
+      const next=freshGame();next.series=G.series+1;next.starter=next.turn=G.starter;
+      view.game=next;lastBoard=Array(9).fill(null);render();push();
+    });
+
     function dropGuest(msg){
       if(stopBeat)stopBeat();stopBeat=null;conn=null;view.connected=false;
       setConn('hostDot','hostConn','wait',msg);render();renderRank();
@@ -425,9 +516,9 @@
     function openPeer(){
       peer=new Peer(PREFIX+H.code,PEER_OPTS);
       peer.on('open',()=>{if(!conn)setConn('hostDot','hostConn','wait','Klaar. Wachten tot een kleinkind de link opent…')});
-      peer.on('disconnected',()=>{setConn('hostDot','hostConn','bad','Verbinding met de spelserver kwijt, opnieuw proberen…');setTimeout(()=>{try{peer.reconnect()}catch(e){}},3000)});
+      peer.on('disconnected',()=>{if(!$('dupe').hidden)return;setConn('hostDot','hostConn','bad','Verbinding met de spelserver kwijt, opnieuw proberen…');setTimeout(()=>{try{peer.reconnect()}catch(e){}},3000)});
       peer.on('error',err=>{
-        if(err.type==='unavailable-id')setConn('hostDot','hostConn','bad','Het spel staat al open in een ander venster of tabblad. Sluit dat eerst en herlaad deze pagina.');
+        if(err.type==='unavailable-id'){$('hostSetup').hidden=true;$('game').hidden=true;$('dupe').hidden=false;document.title='Staat al open – Boter, Kaas & Eieren'}
         else if(err.type==='peer-unavailable'){}
         else if(['network','server-error','socket-error','socket-closed'].includes(err.type))setConn('hostDot','hostConn','bad','Geen verbinding met de spelserver. Controleer je internet; ik probeer het opnieuw…');
         else setConn('hostDot','hostConn','bad','Er ging iets mis ('+err.type+'). Herlaad de pagina.');
@@ -440,21 +531,24 @@
             const name=String(msg.name||'').trim().slice(0,18)||'Kleinkind';
             if(conn&&conn!==c&&conn.open){try{c.send({t:'busy',name:view.names[1]})}catch(e){};setTimeout(()=>c.close(),500);return}
             const k=keyOf(name);
-            if(k!==guestKey){view.game=freshGame();lastBoard=Array(9).fill(null)}   // ander kleinkind: nieuw potje
+            if(k!==guestKey){view.game=freshGame();lastBoard=Array(9).fill(null);chatLog=[];renderChat()}   // ander kleinkind: nieuw potje
             conn=c;guestKey=k;view.names[1]=name;view.connected=true;
             if(stopBeat)stopBeat();
             stopBeat=heartbeat(c,()=>{if(conn===c)dropGuest(name+' is weg. Wachten tot de link opnieuw geopend wordt…')});
             setConn('hostDot','hostConn','ok',name+' speelt mee');
             render();renderRank();push();
+            try{c.send({t:'chatlog',items:chatLog})}catch(e){}
           }else if(c===conn){
             if(msg.t==='bye'){try{c.close()}catch(e){};dropGuest(view.names[1]+' is weg. Wachten tot de link opnieuw geopend wordt…')}
             else if(msg.t==='move')apply(Number(msg.i),1);
             else if(msg.t==='next')onNext();
+            else if(msg.t==='chat')addChat({from:1,text:msg.text},true);
           }
         });
         c.on('close',()=>{if(conn===c)dropGuest(view.names[1]+' is weg. Wachten tot de link opnieuw geopend wordt…')});
       });
     }
+    $('dupeRetry').addEventListener('click',()=>location.reload());
     render();renderRank();openPeer();
   }
 
@@ -485,6 +579,8 @@
         c.on('data',msg=>{
           if(!msg||typeof msg!=='object')return;
           if(msg.t==='busy'){clearTimeout(timer);conn=null;lost('Er speelt nu al iemand anders ('+(msg.name||'iemand')+'). Probeer het straks nog eens.');return}
+          if(msg.t==='chatlog'&&Array.isArray(msg.items)){chatLog=[];msg.items.slice(-60).forEach(m=>chatLog.push({from:m.from==='sys'?'sys':(m.from===1?1:0),text:String(m.text||'').slice(0,200)}));renderChat();return}
+          if(msg.t==='chat'){addChat({from:msg.from==='sys'?'sys':0,text:msg.text},true);return}
           if(msg.t==='state'&&msg.game&&Array.isArray(msg.game.board)){
             joined=true;view.game=msg.game;view.names=msg.names||['',''];view.connected=true;
             $('guestSetup').hidden=true;$('game').hidden=false;
@@ -509,6 +605,7 @@
       view.game.board[i]=1;render();   // direct tonen; de gastheer stuurt de echte stand terug
       try{conn.send({t:'move',i})}catch(e){}};
     onNext=()=>{if(conn)try{conn.send({t:'next'})}catch(e){}};
+    chatSend=t=>{if(!conn||!conn.open)return;addChat({from:1,text:t});try{conn.send({t:'chat',text:t})}catch(e){}};
     addEventListener('pagehide',()=>{if(conn&&conn.open)try{conn.send({t:'bye'})}catch(e){}});
     $('joinBtn').addEventListener('click',connect);
     $('retryBtn').addEventListener('click',connect);
