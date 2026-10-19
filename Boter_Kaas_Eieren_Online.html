@@ -130,6 +130,10 @@
   .quick button:disabled,.sendrow button:disabled{opacity:.4;cursor:default}
   .sendrow{display:flex;gap:8px}
   .sendrow input{flex:1;font-family:var(--body);font-size:17px}
+  .histwrap{max-height:320px;overflow-y:auto}
+  table.hist th,table.hist td{text-align:left!important}
+  table.hist td{font-size:15px}
+  table.hist td.win{color:var(--brass-hi);font-family:var(--display);font-size:17px}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
   @media (max-width:760px){
     .two{grid-template-columns:1fr}
@@ -248,6 +252,20 @@
         <button class="btn primary" id="msgSend">Stuur</button>
       </div>
     </div>
+    <div class="card chat" id="histCard">
+      <h2>Historie van de series</h2>
+      <div class="muted" id="histEmpty">Nog geen series afgesloten. Na elke afgesloten serie komt de uitslag hier te staan.</div>
+      <div class="histwrap"><table class="rank hist" id="histTable" hidden>
+        <thead><tr><th>Datum</th><th id="histWhoHead">Tegen</th><th>Uitslag</th><th>Winnaar</th></tr></thead>
+        <tbody id="histBody"></tbody>
+      </table></div>
+      <div class="confirm" id="histConfirm" hidden style="align-self:stretch;justify-content:flex-start">
+        <span>Hele historie wissen?</span>
+        <button class="btn small" id="histYes">Ja, wissen</button>
+        <button class="btn small" id="histNo">Annuleren</button>
+      </div>
+      <div class="row" id="histCtl" hidden><button class="btn small" id="histClear">Historie wissen</button></div>
+    </div>
   </section>
 </div>
 <div class="toast" id="toast" hidden></div>
@@ -363,6 +381,25 @@
     document.querySelectorAll('#quick button').forEach(b=>b.disabled=!view.connected);
   }
 
+  /* ---------- Historie van de series ---------- */
+  // item: {d: datum, name: kleinkind, host: naam gastheer, n: serienummer, a: winst gastheer, b: winst kleinkind, dr: gelijk}
+  function renderHist(items,showWho){
+    const list=(items||[]).slice().reverse();
+    $('histEmpty').hidden=list.length>0;$('histTable').hidden=!list.length;
+    $('histWhoHead').hidden=!showWho;
+    const tb=$('histBody');tb.innerHTML='';
+    list.forEach(h=>{
+      const tr=document.createElement('tr');
+      const td=(t,c)=>{const d=document.createElement('td');d.textContent=t;if(c)d.className=c;tr.appendChild(d);return d};
+      let dt='';try{dt=new Date(h.d).toLocaleDateString('nl-NL',{day:'numeric',month:'short',year:'numeric'})}catch(e){}
+      td(dt);
+      if(showWho)td(h.name,'nm');
+      td(h.host+' '+h.a+' – '+h.b+' '+h.name+(h.dr?'  ('+h.dr+'× gelijk)':''));
+      td(h.b>h.a?h.name:h.a>h.b?h.host:'Gelijk','win');
+      tb.appendChild(tr);
+    });
+  }
+
   /* ---------- Berichtjes ---------- */
   let chatLog=[],chatSend=()=>{};
   const QUICK=['👍','Goed gedaan!','Jij bent aan de beurt','Haha 😄','Oei! 😮','Nog een potje?','Tot de volgende keer! 👋'];
@@ -415,7 +452,7 @@
   function startHost(){
     const H=store.get(K_HOST,{});
     if(!H.code){H.code=Array.from(crypto.getRandomValues(new Uint8Array(6)),b=>'abcdefghjkmnpqrstuvwxyz23456789'[b%31]).join('')}
-    H.name=H.name||'Opa';H.players=H.players||{};
+    H.name=H.name||'Opa';H.players=H.players||{};H.history=H.history||[];
     store.set(K_HOST,H);
 
     $('hostSetup').hidden=false;$('game').hidden=false;
@@ -472,7 +509,8 @@
       if(!conn||!conn.open)return;
       const p=guestKey&&H.players[guestKey];
       try{conn.send({t:'state',game:view.game,names:view.names,
-        standing:p?{w:p.w,l:p.l,d:p.d,sw:p.sw||0,sl:p.sl||0}:{w:0,l:0,d:0,sw:0,sl:0}})}catch(e){}
+        standing:p?{w:p.w,l:p.l,d:p.d,sw:p.sw||0,sl:p.sl||0}:{w:0,l:0,d:0,sw:0,sl:0},
+        hist:H.history.filter(h=>keyOf(h.name)===guestKey).slice(-50)})}catch(e){}
     }
     function apply(i,who){
       const G=view.game;
@@ -501,7 +539,9 @@
       if(b>a){uitslag=nm(1)+' wint de serie!';if(p)p.sw=(p.sw||0)+1}
       else if(a>b){uitslag=nm(0)+' wint de serie!';if(p)p.sl=(p.sl||0)+1}
       else uitslag='Gelijk opgegaan!';
-      store.set(K_HOST,H);renderRank();
+      H.history.push({d:new Date().toISOString(),name:nm(1),host:nm(0),n:G.series,a,b,dr:G.draws});
+      if(H.history.length>500)H.history.splice(0,H.history.length-500);
+      store.set(K_HOST,H);renderRank();renderHist(H.history,true);$('histCtl').hidden=false;
       sysMsg('Serie '+G.series+' afgesloten: '+nm(0)+' '+a+' – '+nm(1)+' '+b+'. '+uitslag);
       const next=freshGame();next.series=G.series+1;next.starter=next.turn=G.starter;
       view.game=next;lastBoard=Array(9).fill(null);render();push();
@@ -549,6 +589,11 @@
       });
     }
     $('dupeRetry').addEventListener('click',()=>location.reload());
+    $('histCtl').hidden=!H.history.length;
+    $('histClear').addEventListener('click',()=>{$('histConfirm').hidden=false;$('histCtl').hidden=true;$('histNo').focus()});
+    $('histNo').addEventListener('click',()=>{$('histConfirm').hidden=true;$('histCtl').hidden=!H.history.length});
+    $('histYes').addEventListener('click',()=>{H.history=[];store.set(K_HOST,H);$('histConfirm').hidden=true;$('histCtl').hidden=true;renderHist(H.history,true);push()});
+    renderHist(H.history,true);
     render();renderRank();openPeer();
   }
 
@@ -585,6 +630,7 @@
             joined=true;view.game=msg.game;view.names=msg.names||['',''];view.connected=true;
             $('guestSetup').hidden=true;$('game').hidden=false;
             view.standing=msg.standing||{w:0,l:0,d:0};render();
+            if(Array.isArray(msg.hist))renderHist(msg.hist.slice(-50).map(h=>({d:h.d,name:String(h.name||''),host:String(h.host||''),a:+h.a||0,b:+h.b||0,dr:+h.dr||0})),false);
           }
         });
         c.on('close',()=>{clearTimeout(timer);if(conn===c)lost('De verbinding is verbroken.')});
